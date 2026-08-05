@@ -278,4 +278,45 @@ describe('billReducer', () => {
       expect(state).toEqual(initialBillState);
     });
   });
+
+  describe('HYDRATE', () => {
+    it('merges saved fields on top of the current state', () => {
+      const saved = {
+        people: [{ id: 'p1', name: 'Alice' }],
+        items: [{ id: 'i1', name: 'Burger', price: 12, quantity: 1 }],
+        tax: 2,
+        tip: 3,
+        discount: 5,
+        discountMode: 'percent' as const,
+        assignments: { i1: ['p1'] },
+        taxTipSplitMode: 'proportional' as const,
+      };
+
+      const state = billReducer(initialBillState, { type: 'HYDRATE', state: saved });
+
+      expect(state.people).toEqual(saved.people);
+      expect(state.items).toEqual(saved.items);
+      expect(state.tax).toBe(2);
+      expect(state.discount).toBe(5);
+      expect(state.discountMode).toBe('percent');
+      expect(state.taxTipSplitMode).toBe('proportional');
+    });
+
+    it('never restores imageUri, even if present in the saved payload', () => {
+      const before: BillState = { ...initialBillState, imageUri: null };
+      const state = billReducer(before, {
+        type: 'HYDRATE',
+        state: { imageUri: 'file://stale-blob-url.jpg', tax: 4 },
+      });
+      expect(state.imageUri).toBeNull();
+      expect(state.tax).toBe(4);
+    });
+
+    it('leaves fields not present in the saved payload untouched', () => {
+      const before: BillState = { ...initialBillState, tax: 9 };
+      const state = billReducer(before, { type: 'HYDRATE', state: { tip: 2 } });
+      expect(state.tax).toBe(9);
+      expect(state.tip).toBe(2);
+    });
+  });
 });

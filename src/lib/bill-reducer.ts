@@ -52,7 +52,8 @@ export type BillAction =
   | { type: 'REMOVE_PERSON'; id: string }
   | { type: 'TOGGLE_ASSIGNMENT'; itemId: string; personId: string }
   | { type: 'SET_TAX_TIP_SPLIT_MODE'; mode: TaxTipSplitMode }
-  | { type: 'RESET' };
+  | { type: 'RESET' }
+  | { type: 'HYDRATE'; state: Partial<BillState> };
 
 export const initialBillState: BillState = {
   imageUri: null,
@@ -176,6 +177,12 @@ export function billReducer(state: BillState, action: BillAction): BillState {
 
     case 'RESET':
       return initialBillState;
+
+    case 'HYDRATE':
+      // imageUri is intentionally never restored: a persisted blob:/file:
+      // URI from a previous session is no longer valid, so keep whatever is
+      // already in state (null, at the point hydration actually runs).
+      return { ...state, ...action.state, imageUri: state.imageUri };
 
     default:
       return state;

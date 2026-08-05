@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, useReducer, type ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createContext, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from 'react';
 
 import {
   billReducer,
@@ -16,6 +17,8 @@ export type {
   ReceiptItem,
   TaxTipSplitMode,
 } from '@/lib/bill-reducer';
+
+const STORAGE_KEY = 'split-the-bill:state:v1';
 
 type BillContextValue = BillState & {
   setImageUri: (uri: string | null) => void;
@@ -45,6 +48,34 @@ const BillContext = createContext<BillContextValue | null>(null);
 
 export function BillProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(billReducer, initialBillState);
+  const hydratedRef = useRef(false);
+
+  // Load any previously saved bill once on mount, so a page refresh (or
+  // reopening the app) doesn't wipe out the user's progress.
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw) as Partial<BillState>;
+          dispatch({ type: 'HYDRATE', state: saved });
+        }
+      } catch {
+        // Corrupt or unavailable storage — just start fresh.
+      } finally {
+        hydratedRef.current = true;
+      }
+    })();
+  }, []);
+
+  // Persist on every change, but only once the initial load above has had a
+  // chance to run — otherwise the blank starting state would overwrite
+  // whatever was saved before hydration completes.
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    const { imageUri: _imageUri, ...persistable } = state;
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(persistable)).catch(() => {});
+  }, [state]);
 
   const value = useMemo<BillContextValue>(
     () => ({
@@ -64,7 +95,10 @@ export function BillProvider({ children }: { children: ReactNode }) {
       removePerson: (id) => dispatch({ type: 'REMOVE_PERSON', id }),
       toggleAssignment: (itemId, personId) => dispatch({ type: 'TOGGLE_ASSIGNMENT', itemId, personId }),
       setTaxTipSplitMode: (mode) => dispatch({ type: 'SET_TAX_TIP_SPLIT_MODE', mode }),
-      reset: () => dispatch({ type: 'RESET' }),
+      reset: () => {
+        AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+        dispatch({ type: 'RESET' });
+      },
     }),
     [state]
   );

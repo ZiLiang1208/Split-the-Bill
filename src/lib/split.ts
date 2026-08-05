@@ -14,6 +14,24 @@ export function resolveDiscountAmount(
   return Math.max(0, Math.min(raw, subtotal));
 }
 
+/**
+ * Re-expresses a discount value when switching between $ and % modes, so the
+ * underlying dollar impact stays the same across the toggle instead of the
+ * raw number being reinterpreted (25% becoming "$25" is wrong unless the
+ * subtotal happens to be exactly $100).
+ */
+export function convertDiscountValue(
+  subtotal: number,
+  discount: number,
+  fromMode: DiscountMode,
+  toMode: DiscountMode
+): number {
+  if (fromMode === toMode) return discount;
+  const dollarAmount = resolveDiscountAmount(subtotal, discount, fromMode);
+  if (toMode === 'amount') return Math.round(dollarAmount * 100) / 100;
+  return subtotal > 0 ? Math.round((dollarAmount / subtotal) * 10000) / 100 : 0;
+}
+
 export type PersonItemShare = {
   item: ReceiptItem;
   shareOfPrice: number;

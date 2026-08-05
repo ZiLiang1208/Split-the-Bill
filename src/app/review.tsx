@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,9 +11,9 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Shadow, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { type ReceiptItem, useBill } from '@/lib/bill-context';
+import { type DiscountMode, type ReceiptItem, useBill } from '@/lib/bill-context';
 import { parseReceiptImage } from '@/lib/parse-receipt';
-import { resolveDiscountAmount } from '@/lib/split';
+import { convertDiscountValue, resolveDiscountAmount } from '@/lib/split';
 
 export default function ReviewScreen() {
   const router = useRouter();
@@ -37,13 +37,18 @@ export default function ReviewScreen() {
   } = useBill();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [attempted, setAttempted] = useState(false);
+  // Tracks which imageUri we've already (attempted to) parse, so returning to
+  // this screen with the SAME photo doesn't re-scan and blow away edits, but
+  // uploading a NEW photo always triggers a fresh scan instead of silently
+  // keeping the previous photo's items.
+  const lastAttemptedUriRef = useRef<string | null>(null);
 
   const itemsSubtotal = items.reduce((sum, item) => sum + item.price, 0);
   const resolvedDiscount = resolveDiscountAmount(itemsSubtotal, discount, discountMode);
 
   const runParse = useCallback(async () => {
     if (!imageUri) return;
+    lastAttemptedUriRef.current = imageUri;
     setLoading(true);
     setError(null);
     try {
@@ -53,15 +58,20 @@ export default function ReviewScreen() {
       setError(e instanceof Error ? e.message : 'Something went wrong parsing the receipt.');
     } finally {
       setLoading(false);
-      setAttempted(true);
     }
   }, [imageUri, setParsedReceipt]);
 
   useEffect(() => {
-    if (!attempted && items.length === 0 && imageUri) {
+    if (imageUri && imageUri !== lastAttemptedUriRef.current) {
       runParse();
     }
-  }, [attempted, items.length, imageUri, runParse]);
+  }, [imageUri, runParse]);
+
+  function handleSetDiscountMode(mode: DiscountMode) {
+    if (mode === discountMode) return;
+    setDiscount(convertDiscountValue(itemsSubtotal, discount, discountMode, mode));
+    setDiscountMode(mode);
+  }
 
   function renderItem({ item }: { item: ReceiptItem }) {
     return (
@@ -184,7 +194,7 @@ export default function ReviewScreen() {
                       <View style={styles.discountControls}>
                         <View style={[styles.miniSegmented, { backgroundColor: theme.surfaceAlt }]}>
                           <Pressable
-                            onPress={() => setDiscountMode('amount')}
+                            onPress={() => handleSetDiscountMode('amount')}
                             style={[
                               styles.miniSegment,
                               discountMode === 'amount' && { backgroundColor: theme.success },
@@ -199,7 +209,7 @@ export default function ReviewScreen() {
                             </ThemedText>
                           </Pressable>
                           <Pressable
-                            onPress={() => setDiscountMode('percent')}
+                            onPress={() => handleSetDiscountMode('percent')}
                             style={[
                               styles.miniSegment,
                               discountMode === 'percent' && { backgroundColor: theme.success },

@@ -1,5 +1,5 @@
 import type { Assignments, Person, ReceiptItem } from '@/lib/bill-context';
-import { computeSplit, resolveDiscountAmount } from '@/lib/split';
+import { computeSplit, convertDiscountValue, resolveDiscountAmount } from '@/lib/split';
 
 function person(id: string, name: string): Person {
   return { id, name };
@@ -277,6 +277,43 @@ describe('computeSplit', () => {
     it('returns 0 for a $0 subtotal rather than NaN', () => {
       expect(resolveDiscountAmount(0, 10, 'percent')).toBe(0);
       expect(resolveDiscountAmount(0, 10, 'amount')).toBe(0);
+    });
+  });
+
+  describe('convertDiscountValue', () => {
+    it('converts a percentage to the equivalent dollar amount', () => {
+      // 25% of a $100 subtotal is $25.
+      expect(convertDiscountValue(100, 25, 'percent', 'amount')).toBe(25);
+    });
+
+    it('converts a percentage to a dollar amount on a subtotal that is not $100 (the actual bug)', () => {
+      // 25% of an $80 subtotal is $20, not "25" — toggling must not just
+      // reinterpret the raw number under the new unit.
+      expect(convertDiscountValue(80, 25, 'percent', 'amount')).toBe(20);
+    });
+
+    it('converts a dollar amount to the equivalent percentage', () => {
+      expect(convertDiscountValue(80, 20, 'amount', 'percent')).toBe(25);
+    });
+
+    it('is a no-op when converting to the same mode', () => {
+      expect(convertDiscountValue(80, 25, 'percent', 'percent')).toBe(25);
+      expect(convertDiscountValue(80, 20, 'amount', 'amount')).toBe(20);
+    });
+
+    it('round-trips back to (approximately) the original value', () => {
+      const asAmount = convertDiscountValue(137, 12.5, 'percent', 'amount');
+      const backToPercent = convertDiscountValue(137, asAmount, 'amount', 'percent');
+      expect(backToPercent).toBeCloseTo(12.5, 1);
+    });
+
+    it('returns 0 rather than NaN/Infinity when converting to percent on a $0 subtotal', () => {
+      expect(convertDiscountValue(0, 10, 'amount', 'percent')).toBe(0);
+    });
+
+    it('clamps the source value to the subtotal before converting', () => {
+      // $999 discount on a $10 subtotal is nonsensical; clamp before converting.
+      expect(convertDiscountValue(10, 999, 'amount', 'percent')).toBe(100);
     });
   });
 
