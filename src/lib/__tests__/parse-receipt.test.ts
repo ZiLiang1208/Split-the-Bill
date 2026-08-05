@@ -17,6 +17,7 @@ describe('parseGeminiJson', () => {
     expect(result.tax).toBe(1.5);
     expect(result.tip).toBe(3);
     expect(result.discount).toBe(2);
+    expect(result.discountMode).toBe('amount');
     expect(result.items).toHaveLength(2);
     expect(result.items[0]).toMatchObject({ name: 'Burger', price: 12, quantity: 1 });
     expect(result.items[1]).toMatchObject({ name: 'Fries', price: 5, quantity: 2 });
@@ -31,12 +32,68 @@ describe('parseGeminiJson', () => {
     expect(result.tax).toBe(0);
     expect(result.tip).toBe(0);
     expect(result.discount).toBe(0);
+    expect(result.discountMode).toBe('amount');
   });
 
   it('defaults a non-numeric discount to 0', () => {
     const content = JSON.stringify({ items: [{ name: 'Water', price: 2 }], discount: 'ten percent' });
     const result = parseGeminiJson(content);
     expect(result.discount).toBe(0);
+  });
+
+  it('normalizes a negative discount value to its absolute value', () => {
+    const content = JSON.stringify({ items: [{ name: 'Water', price: 2 }], discount: -5 });
+    const result = parseGeminiJson(content);
+    expect(result.discount).toBe(5);
+    expect(result.discountMode).toBe('amount');
+  });
+
+  describe('percentage discounts', () => {
+    it('uses percent mode when the receipt showed a percentage', () => {
+      const content = JSON.stringify({
+        items: [{ name: 'Pasta', price: 20 }, { name: 'Wine', price: 15 }],
+        discount: 3.5,
+        discountPercent: 10,
+      });
+      const result = parseGeminiJson(content);
+      expect(result.discountMode).toBe('percent');
+      expect(result.discount).toBe(10);
+    });
+
+    it('stays in amount mode when only a dollar discount was found', () => {
+      const content = JSON.stringify({
+        items: [{ name: 'Pasta', price: 20 }],
+        discount: 4,
+        discountPercent: 0,
+      });
+      const result = parseGeminiJson(content);
+      expect(result.discountMode).toBe('amount');
+      expect(result.discount).toBe(4);
+    });
+
+    it('ignores a nonsensical percentage above 100 and falls back to the amount', () => {
+      const content = JSON.stringify({
+        items: [{ name: 'Pasta', price: 20 }],
+        discount: 4,
+        discountPercent: 500,
+      });
+      const result = parseGeminiJson(content);
+      expect(result.discountMode).toBe('amount');
+      expect(result.discount).toBe(4);
+    });
+
+    it('prefers the flat amount when a stray negative item also had to be folded in', () => {
+      // A percentage can't represent "10% plus this other negative line", so
+      // the summed dollar amount is the only faithful representation.
+      const content = JSON.stringify({
+        items: [{ name: 'Pasta', price: 20 }, { name: 'Coupon', price: -2 }],
+        discount: 3,
+        discountPercent: 10,
+      });
+      const result = parseGeminiJson(content);
+      expect(result.discountMode).toBe('amount');
+      expect(result.discount).toBe(5);
+    });
   });
 
   it('defaults a missing/blank item name to "Item N" (1-indexed)', () => {

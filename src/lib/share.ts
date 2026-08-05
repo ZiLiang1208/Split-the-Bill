@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-import type { Assignments, Person, ReceiptItem, TaxTipSplitMode } from '@/lib/bill-context';
+import type { Assignments, DiscountMode, Person, ReceiptItem, TaxTipSplitMode } from '@/lib/bill-context';
 
 const FALLBACK_WEB_URL = process.env.EXPO_PUBLIC_WEB_URL;
 
@@ -25,6 +25,7 @@ export type ShareSnapshot = {
   tax: number;
   tip: number;
   discount: number;
+  discountMode: DiscountMode;
   taxTipSplitMode: TaxTipSplitMode;
 };
 
@@ -37,7 +38,8 @@ type CompactSnapshot = {
   a: number[][]; // per-item (same order as i) list of person indices
   t: number; // tax
   g: number; // tip ("gratuity", avoids colliding with tip/t)
-  d: number; // discount
+  d: number; // discount (dollar amount, or percent when dm === 1)
+  dm?: 0 | 1; // discount mode: 0 = amount, 1 = percent (absent on older links)
   m: 0 | 1; // 0 = even, 1 = proportional
 };
 
@@ -86,6 +88,7 @@ export function encodeShare(snapshot: ShareSnapshot): string {
     t: snapshot.tax,
     g: snapshot.tip,
     d: snapshot.discount,
+    dm: snapshot.discountMode === 'percent' ? 1 : 0,
     m: snapshot.taxTipSplitMode === 'proportional' ? 1 : 0,
   };
 
@@ -127,6 +130,7 @@ export function decodeShare(encoded: string): ShareSnapshot | null {
       tax: typeof compact.t === 'number' ? compact.t : 0,
       tip: typeof compact.g === 'number' ? compact.g : 0,
       discount: typeof compact.d === 'number' ? compact.d : 0,
+      discountMode: compact.dm === 1 ? 'percent' : 'amount',
       taxTipSplitMode: compact.m === 1 ? 'proportional' : 'even',
     };
   } catch {

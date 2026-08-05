@@ -1,5 +1,5 @@
 import type { Assignments, Person, ReceiptItem } from '@/lib/bill-context';
-import { computeSplit } from '@/lib/split';
+import { computeSplit, resolveDiscountAmount } from '@/lib/split';
 
 function person(id: string, name: string): Person {
   return { id, name };
@@ -202,7 +202,81 @@ describe('computeSplit', () => {
       const items = [item('i1', 'A', 10)];
       const result = computeSplit([], items, {}, 0, 0);
       expect(result.discount).toBe(0);
+      expect(result.discountPercent).toBeNull();
       expect(result.total).toBe(10);
+    });
+  });
+
+  describe('percentage discounts', () => {
+    it('resolves a percentage against the subtotal', () => {
+      const items = [item('i1', 'A', 80), item('i2', 'B', 20)];
+      const result = computeSplit([], items, {}, 0, 0, 'even', 10, 'percent');
+      // 10% of the $100 subtotal.
+      expect(result.discount).toBe(10);
+      expect(result.discountPercent).toBe(10);
+      expect(result.total).toBe(90);
+    });
+
+    it('reports discountPercent as null in amount mode', () => {
+      const items = [item('i1', 'A', 100)];
+      const result = computeSplit([], items, {}, 0, 0, 'even', 10, 'amount');
+      expect(result.discount).toBe(10);
+      expect(result.discountPercent).toBeNull();
+    });
+
+    it('distributes a percentage discount proportionally, same as a flat amount', () => {
+      const people = [person('p1', 'Alice'), person('p2', 'Bob')];
+      const items = [item('i1', 'Steak', 30), item('i2', 'Salad', 10)];
+      const assignments: Assignments = { i1: ['p1'], i2: ['p2'] };
+
+      // 20% of $40 = $8, split 75/25 => 6 / 2.
+      const result = computeSplit(people, items, assignments, 0, 0, 'even', 20, 'percent');
+
+      expect(result.discount).toBeCloseTo(8);
+      expect(result.perPerson.find((p) => p.person.id === 'p1')!.discountShare).toBeCloseTo(6);
+      expect(result.perPerson.find((p) => p.person.id === 'p2')!.discountShare).toBeCloseTo(2);
+    });
+
+    it('clamps a discount larger than the subtotal so the total never goes negative', () => {
+      const items = [item('i1', 'A', 10)];
+      const overAmount = computeSplit([], items, {}, 0, 0, 'even', 50, 'amount');
+      expect(overAmount.discount).toBe(10);
+      expect(overAmount.total).toBe(0);
+
+      const overPercent = computeSplit([], items, {}, 0, 0, 'even', 150, 'percent');
+      expect(overPercent.discount).toBe(10);
+      expect(overPercent.total).toBe(0);
+    });
+
+    it('never produces a negative discount', () => {
+      const items = [item('i1', 'A', 10)];
+      const result = computeSplit([], items, {}, 0, 0, 'even', -5, 'amount');
+      expect(result.discount).toBe(0);
+    });
+  });
+
+  describe('resolveDiscountAmount', () => {
+    it('passes a flat amount straight through', () => {
+      expect(resolveDiscountAmount(100, 15, 'amount')).toBe(15);
+    });
+
+    it('converts a percentage against the subtotal', () => {
+      expect(resolveDiscountAmount(200, 25, 'percent')).toBe(50);
+    });
+
+    it('defaults to amount mode', () => {
+      expect(resolveDiscountAmount(100, 15)).toBe(15);
+    });
+
+    it('clamps to the subtotal and to zero', () => {
+      expect(resolveDiscountAmount(10, 999, 'amount')).toBe(10);
+      expect(resolveDiscountAmount(10, 200, 'percent')).toBe(10);
+      expect(resolveDiscountAmount(10, -3, 'amount')).toBe(0);
+    });
+
+    it('returns 0 for a $0 subtotal rather than NaN', () => {
+      expect(resolveDiscountAmount(0, 10, 'percent')).toBe(0);
+      expect(resolveDiscountAmount(0, 10, 'amount')).toBe(0);
     });
   });
 

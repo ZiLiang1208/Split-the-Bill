@@ -153,7 +153,7 @@ export function SplitBreakdown({ result, taxTipSplitMode, peopleCount, header, e
           {result.discount > 0 && (
             <View style={styles.lineRow}>
               <ThemedText themeColor="success" type="small">
-                Discount
+                Discount{result.discountPercent !== null ? ` (${result.discountPercent}%)` : ''}
               </ThemedText>
               <ThemedText themeColor="success" type="small">
                 -{money(result.discount)}

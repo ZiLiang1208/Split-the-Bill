@@ -6,12 +6,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '@/components/primary-button';
 import { ScreenHeader } from '@/components/screen-header';
+import { money } from '@/components/split-breakdown';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radius, Shadow, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { type ReceiptItem, useBill } from '@/lib/bill-context';
 import { parseReceiptImage } from '@/lib/parse-receipt';
+import { resolveDiscountAmount } from '@/lib/split';
 
 export default function ReviewScreen() {
   const router = useRouter();
@@ -22,10 +24,12 @@ export default function ReviewScreen() {
     tax,
     tip,
     discount,
+    discountMode,
     setParsedReceipt,
     setTax,
     setTip,
     setDiscount,
+    setDiscountMode,
     addItem,
     updateItem,
     removeItem,
@@ -34,6 +38,9 @@ export default function ReviewScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attempted, setAttempted] = useState(false);
+
+  const itemsSubtotal = items.reduce((sum, item) => sum + item.price, 0);
+  const resolvedDiscount = resolveDiscountAmount(itemsSubtotal, discount, discountMode);
 
   const runParse = useCallback(async () => {
     if (!imageUri) return;
@@ -174,19 +181,68 @@ export default function ReviewScreen() {
                           Discount
                         </ThemedText>
                       </View>
-                      <View style={styles.priceField}>
-                        <ThemedText themeColor="success" type="small">
-                          -$
-                        </ThemedText>
-                        <TextInput
-                          style={[styles.input, styles.totalsInput, { backgroundColor: theme.surfaceAlt, color: theme.text }]}
-                          value={String(discount)}
-                          onChangeText={(text) => setDiscount(Number(text.replace(/[^0-9.]/g, '')) || 0)}
-                          keyboardType="decimal-pad"
-                          placeholderTextColor={theme.textMuted}
-                        />
+                      <View style={styles.discountControls}>
+                        <View style={[styles.miniSegmented, { backgroundColor: theme.surfaceAlt }]}>
+                          <Pressable
+                            onPress={() => setDiscountMode('amount')}
+                            style={[
+                              styles.miniSegment,
+                              discountMode === 'amount' && { backgroundColor: theme.success },
+                            ]}
+                          >
+                            <ThemedText
+                              type="smallBold"
+                              style={discountMode === 'amount' && { color: theme.onSuccess }}
+                              themeColor={discountMode === 'amount' ? undefined : 'textMuted'}
+                            >
+                              $
+                            </ThemedText>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => setDiscountMode('percent')}
+                            style={[
+                              styles.miniSegment,
+                              discountMode === 'percent' && { backgroundColor: theme.success },
+                            ]}
+                          >
+                            <ThemedText
+                              type="smallBold"
+                              style={discountMode === 'percent' && { color: theme.onSuccess }}
+                              themeColor={discountMode === 'percent' ? undefined : 'textMuted'}
+                            >
+                              %
+                            </ThemedText>
+                          </Pressable>
+                        </View>
+                        <View style={styles.priceField}>
+                          <ThemedText themeColor="success" type="small">
+                            {discountMode === 'percent' ? '-' : '-$'}
+                          </ThemedText>
+                          <TextInput
+                            style={[styles.input, styles.totalsInput, { backgroundColor: theme.surfaceAlt, color: theme.text }]}
+                            value={String(discount)}
+                            onChangeText={(text) => {
+                              // Typing a "%" (e.g. pasting "10%") flips the mode
+                              // so the value lands where the user expects.
+                              if (text.includes('%')) setDiscountMode('percent');
+                              setDiscount(Number(text.replace(/[^0-9.]/g, '')) || 0);
+                            }}
+                            keyboardType="decimal-pad"
+                            placeholderTextColor={theme.textMuted}
+                          />
+                          {discountMode === 'percent' && (
+                            <ThemedText themeColor="success" type="small">
+                              %
+                            </ThemedText>
+                          )}
+                        </View>
                       </View>
                     </View>
+                    {discountMode === 'percent' && discount > 0 && (
+                      <ThemedText themeColor="textMuted" type="small" style={styles.discountHint}>
+                        {discount}% off {money(itemsSubtotal)} = -{money(resolvedDiscount)}
+                      </ThemedText>
+                    )}
                     <View style={styles.totalField}>
                       <View style={styles.totalLabelRow}>
                         <Ionicons name="pricetag-outline" size={15} color={theme.textSecondary} />
@@ -321,5 +377,15 @@ const styles = StyleSheet.create({
   totalField: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   totalLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   totalsInput: { width: 70, textAlign: 'right' },
+  discountControls: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  miniSegmented: { flexDirection: 'row', borderRadius: Radius.pill, padding: 2 },
+  miniSegment: {
+    minWidth: 28,
+    paddingVertical: 3,
+    borderRadius: Radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  discountHint: { textAlign: 'right', marginTop: -Spacing.one },
   continueWrap: { marginTop: Spacing.two, marginBottom: Spacing.three },
 });

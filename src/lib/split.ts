@@ -1,4 +1,18 @@
-import type { Assignments, Person, ReceiptItem, TaxTipSplitMode } from '@/lib/bill-context';
+import type { Assignments, DiscountMode, Person, ReceiptItem, TaxTipSplitMode } from '@/lib/bill-context';
+
+/**
+ * Turns a discount (either a flat dollar amount or a percentage of the
+ * subtotal) into the dollar amount actually coming off the bill. Clamped to
+ * [0, subtotal] — you can't discount more than the items cost.
+ */
+export function resolveDiscountAmount(
+  subtotal: number,
+  discount: number,
+  discountMode: DiscountMode = 'amount'
+): number {
+  const raw = discountMode === 'percent' ? subtotal * (discount / 100) : discount;
+  return Math.max(0, Math.min(raw, subtotal));
+}
 
 export type PersonItemShare = {
   item: ReceiptItem;
@@ -20,7 +34,10 @@ export type SplitResult = {
   perPerson: PersonTotal[];
   unassignedItems: ReceiptItem[];
   subtotal: number;
+  /** The dollar amount coming off the bill, after resolving any percentage. */
   discount: number;
+  /** Set only when the discount was expressed as a percentage, for display. */
+  discountPercent: number | null;
   tax: number;
   tip: number;
   total: number;
@@ -33,9 +50,11 @@ export function computeSplit(
   tax: number,
   tip: number,
   taxTipSplitMode: TaxTipSplitMode = 'even',
-  discount: number = 0
+  discount: number = 0,
+  discountMode: DiscountMode = 'amount'
 ): SplitResult {
   const subtotal = items.reduce((sum, item) => sum + item.price, 0);
+  const discountAmount = resolveDiscountAmount(subtotal, discount, discountMode);
   const unassignedItems = items.filter((item) => (assignments[item.id]?.length ?? 0) === 0);
 
   const perPersonSubtotal = new Map<string, number>();
@@ -64,7 +83,7 @@ export function computeSplit(
 
     // Discount is always distributed by each person's share of what they
     // ordered — it's tied to the items purchased, not to headcount.
-    const discountShare = discount * subtotalProportion;
+    const discountShare = discountAmount * subtotalProportion;
 
     let taxShare: number;
     let tipShare: number;
@@ -91,9 +110,10 @@ export function computeSplit(
     perPerson,
     unassignedItems,
     subtotal,
-    discount,
+    discount: discountAmount,
+    discountPercent: discountMode === 'percent' && discount > 0 ? discount : null,
     tax,
     tip,
-    total: subtotal - discount + tax + tip,
+    total: subtotal - discountAmount + tax + tip,
   };
 }

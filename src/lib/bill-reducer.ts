@@ -15,12 +15,16 @@ export type Assignments = Record<string, string[]>;
 
 export type TaxTipSplitMode = 'even' | 'proportional';
 
+/** Whether `discount` is a flat dollar amount or a percentage of the subtotal. */
+export type DiscountMode = 'amount' | 'percent';
+
 export type BillState = {
   imageUri: string | null;
   items: ReceiptItem[];
   tax: number;
   tip: number;
   discount: number;
+  discountMode: DiscountMode;
   people: Person[];
   assignments: Assignments;
   taxTipSplitMode: TaxTipSplitMode;
@@ -28,10 +32,18 @@ export type BillState = {
 
 export type BillAction =
   | { type: 'SET_IMAGE_URI'; uri: string | null }
-  | { type: 'SET_PARSED_RECEIPT'; items: ReceiptItem[]; tax: number; tip: number; discount: number }
+  | {
+      type: 'SET_PARSED_RECEIPT';
+      items: ReceiptItem[];
+      tax: number;
+      tip: number;
+      discount: number;
+      discountMode: DiscountMode;
+    }
   | { type: 'SET_TAX'; tax: number }
   | { type: 'SET_TIP'; tip: number }
   | { type: 'SET_DISCOUNT'; discount: number }
+  | { type: 'SET_DISCOUNT_MODE'; mode: DiscountMode }
   | { type: 'ADD_ITEM' }
   | { type: 'UPDATE_ITEM'; id: string; patch: Partial<Omit<ReceiptItem, 'id'>> }
   | { type: 'REMOVE_ITEM'; id: string }
@@ -48,6 +60,7 @@ export const initialBillState: BillState = {
   tax: 0,
   tip: 0,
   discount: 0,
+  discountMode: 'amount',
   people: [],
   assignments: {},
   taxTipSplitMode: 'even',
@@ -70,6 +83,7 @@ export function billReducer(state: BillState, action: BillAction): BillState {
         tax: action.tax,
         tip: action.tip,
         discount: action.discount,
+        discountMode: action.discountMode,
         assignments: {},
       };
 
@@ -81,6 +95,9 @@ export function billReducer(state: BillState, action: BillAction): BillState {
 
     case 'SET_DISCOUNT':
       return { ...state, discount: action.discount };
+
+    case 'SET_DISCOUNT_MODE':
+      return { ...state, discountMode: action.mode };
 
     case 'ADD_ITEM':
       return {

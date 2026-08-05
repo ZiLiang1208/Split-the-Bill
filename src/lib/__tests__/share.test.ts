@@ -9,6 +9,7 @@ function snapshot(overrides: Partial<ShareSnapshot> = {}): ShareSnapshot {
     tax: 0,
     tip: 0,
     discount: 0,
+    discountMode: 'amount',
     taxTipSplitMode: 'even',
     ...overrides,
   };
@@ -65,6 +66,32 @@ describe('encodeShare / decodeShare round trip', () => {
     const encoded = encodeShare(snapshot({ discount: 0 }));
     const decoded = decodeShare(encoded);
     expect(decoded!.discount).toBe(0);
+    expect(decoded!.discountMode).toBe('amount');
+  });
+
+  it('round-trips a percentage discount mode', () => {
+    const encoded = encodeShare(snapshot({ discount: 15, discountMode: 'percent' }));
+    const decoded = decodeShare(encoded);
+    expect(decoded!.discount).toBe(15);
+    expect(decoded!.discountMode).toBe('percent');
+  });
+
+  it('defaults discountMode to "amount" for links encoded before the field existed', () => {
+    // Simulates an older share link whose payload has no "dm" key.
+    const legacy = { p: ['Alice'], i: [['Burger', 12, 1]], a: [[0]], t: 1, g: 2, d: 3, m: 0 };
+    const bytes = new TextEncoder().encode(JSON.stringify(legacy));
+    let binary = '';
+    bytes.forEach((b) => (binary += String.fromCharCode(b)));
+    const encoded = Buffer.from(binary, 'binary')
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    const decoded = decodeShare(encoded);
+    expect(decoded).not.toBeNull();
+    expect(decoded!.discount).toBe(3);
+    expect(decoded!.discountMode).toBe('amount');
   });
 
   it('round-trips an empty bill (no people, no items)', () => {

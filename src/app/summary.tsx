@@ -19,18 +19,27 @@ import { computeSplit } from '@/lib/split';
 export default function SummaryScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const { items, people, assignments, tax, tip, discount, taxTipSplitMode, reset } = useBill();
+  const { items, people, assignments, tax, tip, discount, discountMode, taxTipSplitMode, reset } = useBill();
   const [sharing, setSharing] = useState(false);
 
   const result = useMemo(
-    () => computeSplit(people, items, assignments, tax, tip, taxTipSplitMode, discount),
-    [people, items, assignments, tax, tip, taxTipSplitMode, discount]
+    () => computeSplit(people, items, assignments, tax, tip, taxTipSplitMode, discount, discountMode),
+    [people, items, assignments, tax, tip, taxTipSplitMode, discount, discountMode]
   );
 
   async function handleShare() {
     setSharing(true);
     try {
-      const encoded = encodeShare({ people, items, assignments, tax, tip, discount, taxTipSplitMode });
+      const encoded = encodeShare({
+        people,
+        items,
+        assignments,
+        tax,
+        tip,
+        discount,
+        discountMode,
+        taxTipSplitMode,
+      });
       const url = buildShareUrl(encoded);
       if (!url) {
         Alert.alert(

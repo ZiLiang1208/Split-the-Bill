@@ -1,4 +1,4 @@
-import type { ReceiptItem } from '@/lib/bill-context';
+import type { DiscountMode, ReceiptItem } from '@/lib/bill-context';
 
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 const GEMINI_MODEL = 'gemini-flash-latest';
@@ -9,18 +9,22 @@ Return ONLY a JSON object with this exact shape, no prose:
   "items": [{ "name": string, "price": number, "quantity": number }],
   "tax": number,
   "tip": number,
-  "discount": number
+  "discount": number,
+  "discountPercent": number
 }
 Rules:
 - "price" is the line price for that item (unit price times quantity as printed on the receipt), not the per-unit price.
 - "quantity" defaults to 1 if not shown.
 - If the receipt shows a tip, gratuity, or service charge line (labeled "Tip", "Gratuity", "Service Charge", "Auto-Gratuity", etc.), put that amount in the "tip" field. Do NOT list it as an item.
 - If the receipt shows a tax, sales tax, or VAT line, put that amount in the "tax" field. Do NOT list it as an item.
-- If the receipt shows a discount, coupon, or promo line (these usually appear as a negative amount), put its positive/absolute value in the "discount" field. Do NOT list it as an item.
-- "tax", "tip", and "discount" default to 0 if no such line is present on the receipt.
+- If the receipt shows a discount, coupon, promo, or comp line (these usually appear as a negative amount such as "-20.00"), put its positive/absolute value in the "discount" field. Do NOT list it as an item.
+- If that discount line is expressed as a percentage (e.g. "10% off", "(10%)", "Promo 15%"), also put the percentage number in "discountPercent" (use 10 for 10%). If a percentage is shown but no dollar amount, compute the dollar value from the items subtotal and put it in "discount".
+- If there is no discount at all, set both "discount" and "discountPercent" to 0.
+- Sum multiple discount lines into a single "discount" total; only set "discountPercent" if a single percentage governs the whole discount.
 - Do not include the total/subtotal line as an item.
 - Fix obvious OCR issues (misplaced decimals, merged words) using context.
-- All monetary values are plain, non-negative numbers (no currency symbols, no minus signs).`;
+- All monetary values are plain, non-negative numbers (no currency symbols, no minus signs, no parentheses).
+- ALWAYS include every field in the response, using 0 when a value is absent.`;
 
 const RESPONSE_SCHEMA = {
   type: 'object',
@@ -34,14 +38,17 @@ const RESPONSE_SCHEMA = {
           price: { type: 'number' },
           quantity: { type: 'number' },
         },
-        required: ['name', 'price'],
+        required: ['name', 'price', 'quantity'],
       },
     },
     tax: { type: 'number' },
     tip: { type: 'number' },
     discount: { type: 'number' },
+    discountPercent: { type: 'number' },
   },
-  required: ['items'],
+  // Every field must be required: Gemini omits optional fields entirely, which
+  // silently dropped the discount (and could drop tax/tip) from the result.
+  required: ['items', 'tax', 'tip', 'discount', 'discountPercent'],
 };
 
 export type ParsedReceipt = {
@@ -49,7 +56,12 @@ export type ParsedReceipt = {
   tax: number;
   tip: number;
   discount: number;
+  discountMode: DiscountMode;
 };
+
+function toFiniteNumber(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
 
 /**
  * Validates and normalizes the raw JSON text returned by the model into a
@@ -57,7 +69,13 @@ export type ParsedReceipt = {
  * without mocking network/image APIs.
  */
 export function parseGeminiJson(content: string): ParsedReceipt {
-  let parsed: { items?: unknown; tax?: unknown; tip?: unknown; discount?: unknown };
+  let parsed: {
+    items?: unknown;
+    tax?: unknown;
+    tip?: unknown;
+    discount?: unknown;
+    discountPercent?: unknown;
+  };
   try {
     parsed = JSON.parse(content);
   } catch {
@@ -73,7 +91,7 @@ export function parseGeminiJson(content: string): ParsedReceipt {
     return {
       id: `item-${Date.now()}-${index}`,
       name: typeof item.name === 'string' && item.name.trim() ? item.name.trim() : `Item ${index + 1}`,
-      price: typeof item.price === 'number' && Number.isFinite(item.price) ? item.price : 0,
+      price: toFiniteNumber(item.price),
       quantity: typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1,
     };
   });
@@ -86,14 +104,20 @@ export function parseGeminiJson(content: string): ParsedReceipt {
     .filter((item) => item.price < 0)
     .reduce((sum, item) => sum + Math.abs(item.price), 0);
 
-  const parsedDiscount =
-    typeof parsed.discount === 'number' && Number.isFinite(parsed.discount) ? parsed.discount : 0;
+  const discountAmount = Math.abs(toFiniteNumber(parsed.discount)) + strayNegativeTotal;
+  const discountPercent = Math.abs(toFiniteNumber(parsed.discountPercent));
+
+  // A percentage on the receipt is the more faithful representation (it keeps
+  // working if items are later edited), so prefer it when one was found. Only
+  // trust a sane percentage; otherwise fall back to the flat amount.
+  const usePercent = discountPercent > 0 && discountPercent <= 100 && strayNegativeTotal === 0;
 
   return {
     items,
-    tax: typeof parsed.tax === 'number' && Number.isFinite(parsed.tax) ? parsed.tax : 0,
-    tip: typeof parsed.tip === 'number' && Number.isFinite(parsed.tip) ? parsed.tip : 0,
-    discount: parsedDiscount + strayNegativeTotal,
+    tax: toFiniteNumber(parsed.tax),
+    tip: toFiniteNumber(parsed.tip),
+    discount: usePercent ? discountPercent : discountAmount,
+    discountMode: usePercent ? 'percent' : 'amount',
   };
 }
 
@@ -133,7 +157,9 @@ export async function parseReceiptImage(imageUri: string): Promise<ParsedReceipt
           {
             role: 'user',
             parts: [
-              { text: 'Extract the line items, tax, tip, and discount from this receipt photo.' },
+              {
+                text: 'Extract the line items, tax, tip, and any discount (flat amount or percentage) from this receipt photo.',
+              },
               { inlineData: { mimeType, data: base64 } },
             ],
           },

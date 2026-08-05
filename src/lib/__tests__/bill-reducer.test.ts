@@ -33,19 +33,35 @@ describe('billReducer', () => {
         tax: 2,
         tip: 3,
         discount: 4,
+        discountMode: 'amount',
       });
 
       expect(state.items).toEqual(items);
       expect(state.tax).toBe(2);
       expect(state.tip).toBe(3);
       expect(state.discount).toBe(4);
+      expect(state.discountMode).toBe('amount');
       expect(state.assignments).toEqual({});
+    });
+
+    it('carries a percentage discount mode through from the parser', () => {
+      const state = billReducer(initialBillState, {
+        type: 'SET_PARSED_RECEIPT',
+        items: [],
+        tax: 0,
+        tip: 0,
+        discount: 10,
+        discountMode: 'percent',
+      });
+      expect(state.discount).toBe(10);
+      expect(state.discountMode).toBe('percent');
     });
   });
 
-  describe('SET_TAX / SET_TIP / SET_DISCOUNT', () => {
-    it('defaults discount to 0', () => {
+  describe('SET_TAX / SET_TIP / SET_DISCOUNT / SET_DISCOUNT_MODE', () => {
+    it('defaults discount to 0 in "amount" mode', () => {
       expect(initialBillState.discount).toBe(0);
+      expect(initialBillState.discountMode).toBe('amount');
     });
 
     it('updates tax, tip, and discount independently', () => {
@@ -55,6 +71,16 @@ describe('billReducer', () => {
       expect(state.tax).toBe(4.5);
       expect(state.tip).toBe(6);
       expect(state.discount).toBe(3);
+    });
+
+    it('toggles discount mode without disturbing the entered value', () => {
+      let state = billReducer(initialBillState, { type: 'SET_DISCOUNT', discount: 15 });
+      state = billReducer(state, { type: 'SET_DISCOUNT_MODE', mode: 'percent' });
+      expect(state.discountMode).toBe('percent');
+      expect(state.discount).toBe(15);
+      state = billReducer(state, { type: 'SET_DISCOUNT_MODE', mode: 'amount' });
+      expect(state.discountMode).toBe('amount');
+      expect(state.discount).toBe(15);
     });
   });
 
@@ -243,6 +269,7 @@ describe('billReducer', () => {
         tax: 5,
         tip: 5,
         discount: 2,
+        discountMode: 'percent',
         people: [{ id: 'p1', name: 'Alice' }],
         assignments: { i1: ['p1'] },
         taxTipSplitMode: 'proportional',
