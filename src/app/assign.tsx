@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ItemRow } from '@/components/item-row';
@@ -61,53 +61,35 @@ export default function AssignScreen() {
           showBack
         />
 
-        {/* People and the add-person field share one row, and the row scrolls
-            horizontally, so adding people never steals height from the item
-            list below. */}
-        <View style={styles.peopleSection}>
-          {people.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.peopleRow}
-              style={styles.peopleScroll}
-            >
-              {people.map((person, index) => (
-                <PersonAvatar
-                  key={person.id}
-                  person={person}
-                  color={avatarColorFor(index)}
-                  onPress={() => handlePersonPress(person.id)}
-                  onRemove={() => removePerson(person.id)}
-                  assignedCount={assignedCountFor(person.id)}
-                />
-              ))}
-            </ScrollView>
-          )}
-
-          <View
-            style={[
-              styles.addPersonRow,
-              people.length === 0 && styles.addPersonRowWide,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}
-          >
-            <TextInput
-              style={[styles.nameInput, { color: theme.text }]}
-              value={nameInput}
-              onChangeText={setNameInput}
-              placeholder="Add person…"
-              placeholderTextColor={theme.textMuted}
-              onSubmitEditing={handleAddPerson}
-              returnKeyType="done"
-            />
-            <Pressable
-              onPress={handleAddPerson}
-              style={[styles.addButton, { backgroundColor: theme.primary }]}
-            >
-              <Ionicons name="add" size={18} color={theme.onPrimary} />
-            </Pressable>
+        {people.length > 0 && (
+          <View style={styles.peopleWrap}>
+            {people.map((person, index) => (
+              <PersonAvatar
+                key={person.id}
+                person={person}
+                color={avatarColorFor(index)}
+                onPress={() => handlePersonPress(person.id)}
+                onRemove={() => removePerson(person.id)}
+                assignedCount={assignedCountFor(person.id)}
+              />
+            ))}
           </View>
+        )}
+
+        <View style={[styles.addPersonRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Ionicons name="person-add-outline" size={16} color={theme.textSecondary} />
+          <TextInput
+            style={[styles.nameInput, { color: theme.text }]}
+            value={nameInput}
+            onChangeText={setNameInput}
+            placeholder="Add a person…"
+            placeholderTextColor={theme.textMuted}
+            onSubmitEditing={handleAddPerson}
+            returnKeyType="done"
+          />
+          <Pressable onPress={handleAddPerson} style={[styles.addButton, { backgroundColor: theme.primary }]}>
+            <Ionicons name="add" size={18} color={theme.onPrimary} />
+          </Pressable>
         </View>
 
         <View style={styles.taxTipRow}>
@@ -185,30 +167,22 @@ export default function AssignScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1, paddingHorizontal: Spacing.four, paddingTop: Spacing.three },
-  peopleSection: {
+  peopleWrap: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
     gap: Spacing.two,
-    marginBottom: Spacing.three,
-  },
-  peopleScroll: { flex: 1 },
-  peopleRow: {
-    flexDirection: 'row',
-    gap: Spacing.three,
-    paddingRight: Spacing.two,
+    marginBottom: Spacing.two,
   },
   addPersonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.one,
-    paddingLeft: Spacing.three,
-    paddingRight: Spacing.one,
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.one,
     borderRadius: Radius.pill,
     borderWidth: 1,
-    width: 148,
+    marginBottom: Spacing.three,
   },
-  addPersonRowWide: { flex: 1, width: undefined },
   nameInput: { flex: 1, fontSize: 14, paddingVertical: Spacing.one },
   addButton: {
     width: 28,

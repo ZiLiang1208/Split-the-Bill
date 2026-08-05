@@ -51,13 +51,13 @@ export function PersonAvatar({ person, color, assignedCount, selected, onPress, 
 
         <Pressable
           onPress={onRemove}
-          hitSlop={6}
+          hitSlop={8}
           style={[styles.removeBadge, { backgroundColor: theme.surface, borderColor: theme.background }]}
         >
-          <Ionicons name="close" size={10} color={theme.textSecondary} />
+          <Ionicons name="close" size={9} color={theme.textSecondary} />
         </Pressable>
       </View>
-      <ThemedText type="small" numberOfLines={1} style={styles.name}>
+      <ThemedText type="small" numberOfLines={1} style={[styles.name, { color: theme.textSecondary }]}>
         {person.name}
       </ThemedText>
     </View>
@@ -65,42 +65,42 @@ export function PersonAvatar({ person, color, assignedCount, selected, onPress, 
 }
 
 const styles = StyleSheet.create({
-  container: { alignItems: 'center', width: 60 },
-  circleWrap: { width: 48, height: 48 },
+  container: { alignItems: 'center', width: 44 },
+  circleWrap: { width: 34, height: 34 },
   circle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
   },
   circleSelected: {
-    borderWidth: 3,
+    borderWidth: 2,
   },
-  initials: { color: '#FFFFFF' },
+  initials: { color: '#FFFFFF', fontSize: 12, lineHeight: 14 },
   badge: {
     position: 'absolute',
     bottom: -2,
     right: -2,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
+    minWidth: 15,
+    height: 15,
+    borderRadius: 8,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 3,
+    paddingHorizontal: 2,
   },
-  badgeText: { color: '#fff', fontSize: 10, lineHeight: 12 },
+  badgeText: { color: '#fff', fontSize: 9, lineHeight: 11 },
   removeBadge: {
     position: 'absolute',
-    top: -4,
-    left: -4,
-    width: 16,
-    height: 16,
+    top: -3,
+    left: -3,
+    width: 15,
+    height: 15,
     borderRadius: 8,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  name: { marginTop: 6, maxWidth: 60, textAlign: 'center' },
+  name: { marginTop: 4, maxWidth: 44, fontSize: 11, textAlign: 'center' },
 });
