@@ -6,9 +6,10 @@ export type { Assignments, BillState, Person, ReceiptItem, TaxTipSplitMode } fro
 
 type BillContextValue = BillState & {
   setImageUri: (uri: string | null) => void;
-  setParsedReceipt: (data: { items: BillState['items']; tax: number; tip: number }) => void;
+  setParsedReceipt: (data: { items: BillState['items']; tax: number; tip: number; discount: number }) => void;
   setTax: (tax: number) => void;
   setTip: (tip: number) => void;
+  setDiscount: (discount: number) => void;
   addItem: () => void;
   updateItem: (id: string, patch: Partial<Omit<BillState['items'][number], 'id'>>) => void;
   removeItem: (id: string) => void;
@@ -29,9 +30,11 @@ export function BillProvider({ children }: { children: ReactNode }) {
     () => ({
       ...state,
       setImageUri: (uri) => dispatch({ type: 'SET_IMAGE_URI', uri }),
-      setParsedReceipt: ({ items, tax, tip }) => dispatch({ type: 'SET_PARSED_RECEIPT', items, tax, tip }),
+      setParsedReceipt: ({ items, tax, tip, discount }) =>
+        dispatch({ type: 'SET_PARSED_RECEIPT', items, tax, tip, discount }),
       setTax: (tax) => dispatch({ type: 'SET_TAX', tax }),
       setTip: (tip) => dispatch({ type: 'SET_TIP', tip }),
+      setDiscount: (discount) => dispatch({ type: 'SET_DISCOUNT', discount }),
       addItem: () => dispatch({ type: 'ADD_ITEM' }),
       updateItem: (id, patch) => dispatch({ type: 'UPDATE_ITEM', id, patch }),
       removeItem: (id) => dispatch({ type: 'REMOVE_ITEM', id }),

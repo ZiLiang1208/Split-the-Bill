@@ -28,7 +28,8 @@ export default function SharedScreen() {
       snapshot.assignments,
       snapshot.tax,
       snapshot.tip,
-      snapshot.taxTipSplitMode
+      snapshot.taxTipSplitMode,
+      snapshot.discount
     );
   }, [snapshot]);
 

@@ -24,6 +24,7 @@ export type ShareSnapshot = {
   assignments: Assignments;
   tax: number;
   tip: number;
+  discount: number;
   taxTipSplitMode: TaxTipSplitMode;
 };
 
@@ -36,6 +37,7 @@ type CompactSnapshot = {
   a: number[][]; // per-item (same order as i) list of person indices
   t: number; // tax
   g: number; // tip ("gratuity", avoids colliding with tip/t)
+  d: number; // discount
   m: 0 | 1; // 0 = even, 1 = proportional
 };
 
@@ -83,6 +85,7 @@ export function encodeShare(snapshot: ShareSnapshot): string {
     ),
     t: snapshot.tax,
     g: snapshot.tip,
+    d: snapshot.discount,
     m: snapshot.taxTipSplitMode === 'proportional' ? 1 : 0,
   };
 
@@ -123,6 +126,7 @@ export function decodeShare(encoded: string): ShareSnapshot | null {
       assignments,
       tax: typeof compact.t === 'number' ? compact.t : 0,
       tip: typeof compact.g === 'number' ? compact.g : 0,
+      discount: typeof compact.d === 'number' ? compact.d : 0,
       taxTipSplitMode: compact.m === 1 ? 'proportional' : 'even',
     };
   } catch {

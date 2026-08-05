@@ -66,6 +66,16 @@ export function SplitBreakdown({ result, taxTipSplitMode, peopleCount, header, e
             {money(personTotal.subtotal)}
           </ThemedText>
         </View>
+        {personTotal.discountShare > 0 && (
+          <View style={styles.lineRow}>
+            <ThemedText themeColor="success" type="small">
+              Discount share
+            </ThemedText>
+            <ThemedText themeColor="success" type="small">
+              -{money(personTotal.discountShare)}
+            </ThemedText>
+          </View>
+        )}
         <View style={styles.lineRow}>
           <ThemedText themeColor="textSecondary" type="small">
             Tax share
@@ -127,6 +137,52 @@ export function SplitBreakdown({ result, taxTipSplitMode, peopleCount, header, e
           )}
         </>
       }
+      ListFooterComponent={
+        <ThemedView style={[styles.card, styles.footerCard, { borderColor: theme.border }, Shadow.sm]}>
+          <ThemedText type="smallBold" style={styles.footerTitle}>
+            Receipt Breakdown
+          </ThemedText>
+          <View style={styles.lineRow}>
+            <ThemedText themeColor="textSecondary" type="small">
+              Subtotal
+            </ThemedText>
+            <ThemedText themeColor="textSecondary" type="small">
+              {money(result.subtotal)}
+            </ThemedText>
+          </View>
+          {result.discount > 0 && (
+            <View style={styles.lineRow}>
+              <ThemedText themeColor="success" type="small">
+                Discount
+              </ThemedText>
+              <ThemedText themeColor="success" type="small">
+                -{money(result.discount)}
+              </ThemedText>
+            </View>
+          )}
+          <View style={styles.lineRow}>
+            <ThemedText themeColor="textSecondary" type="small">
+              Tax
+            </ThemedText>
+            <ThemedText themeColor="textSecondary" type="small">
+              {money(result.tax)}
+            </ThemedText>
+          </View>
+          <View style={styles.lineRow}>
+            <ThemedText themeColor="textSecondary" type="small">
+              Tip
+            </ThemedText>
+            <ThemedText themeColor="textSecondary" type="small">
+              {money(result.tip)}
+            </ThemedText>
+          </View>
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <View style={styles.lineRow}>
+            <ThemedText type="smallBold">Total</ThemedText>
+            <ThemedText type="smallBold">{money(result.total)}</ThemedText>
+          </View>
+        </ThemedView>
+      }
     />
   );
 }
@@ -155,6 +211,8 @@ const styles = StyleSheet.create({
   warningText: { flex: 1 },
   emptyText: { textAlign: 'center', marginTop: Spacing.four },
   card: { padding: Spacing.three, borderRadius: Radius.md, borderWidth: 1, gap: 4 },
+  footerCard: { marginTop: Spacing.one },
+  footerTitle: { marginBottom: Spacing.one },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

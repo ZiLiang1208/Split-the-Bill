@@ -8,6 +8,7 @@ function snapshot(overrides: Partial<ShareSnapshot> = {}): ShareSnapshot {
     assignments: {},
     tax: 0,
     tip: 0,
+    discount: 0,
     taxTipSplitMode: 'even',
     ...overrides,
   };
@@ -28,7 +29,9 @@ describe('encodeShare / decodeShare round trip', () => {
       'i-fries': ['p-alice', 'p-bob'],
     };
 
-    const encoded = encodeShare(snapshot({ people, items, assignments, tax: 2.5, tip: 4, taxTipSplitMode: 'proportional' }));
+    const encoded = encodeShare(
+      snapshot({ people, items, assignments, tax: 2.5, tip: 4, discount: 3, taxTipSplitMode: 'proportional' })
+    );
     const decoded = decodeShare(encoded);
 
     expect(decoded).not.toBeNull();
@@ -39,6 +42,7 @@ describe('encodeShare / decodeShare round trip', () => {
     ]);
     expect(decoded!.tax).toBe(2.5);
     expect(decoded!.tip).toBe(4);
+    expect(decoded!.discount).toBe(3);
     expect(decoded!.taxTipSplitMode).toBe('proportional');
 
     // Assignments are preserved by matching person *name* (ids get remapped
@@ -55,6 +59,12 @@ describe('encodeShare / decodeShare round trip', () => {
     const encoded = encodeShare(snapshot({ taxTipSplitMode: 'even' }));
     const decoded = decodeShare(encoded);
     expect(decoded!.taxTipSplitMode).toBe('even');
+  });
+
+  it('round-trips a zero discount', () => {
+    const encoded = encodeShare(snapshot({ discount: 0 }));
+    const decoded = decodeShare(encoded);
+    expect(decoded!.discount).toBe(0);
   });
 
   it('round-trips an empty bill (no people, no items)', () => {

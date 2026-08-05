@@ -20,6 +20,7 @@ export type BillState = {
   items: ReceiptItem[];
   tax: number;
   tip: number;
+  discount: number;
   people: Person[];
   assignments: Assignments;
   taxTipSplitMode: TaxTipSplitMode;
@@ -27,9 +28,10 @@ export type BillState = {
 
 export type BillAction =
   | { type: 'SET_IMAGE_URI'; uri: string | null }
-  | { type: 'SET_PARSED_RECEIPT'; items: ReceiptItem[]; tax: number; tip: number }
+  | { type: 'SET_PARSED_RECEIPT'; items: ReceiptItem[]; tax: number; tip: number; discount: number }
   | { type: 'SET_TAX'; tax: number }
   | { type: 'SET_TIP'; tip: number }
+  | { type: 'SET_DISCOUNT'; discount: number }
   | { type: 'ADD_ITEM' }
   | { type: 'UPDATE_ITEM'; id: string; patch: Partial<Omit<ReceiptItem, 'id'>> }
   | { type: 'REMOVE_ITEM'; id: string }
@@ -45,6 +47,7 @@ export const initialBillState: BillState = {
   items: [],
   tax: 0,
   tip: 0,
+  discount: 0,
   people: [],
   assignments: {},
   taxTipSplitMode: 'even',
@@ -61,13 +64,23 @@ export function billReducer(state: BillState, action: BillAction): BillState {
       return { ...state, imageUri: action.uri };
 
     case 'SET_PARSED_RECEIPT':
-      return { ...state, items: action.items, tax: action.tax, tip: action.tip, assignments: {} };
+      return {
+        ...state,
+        items: action.items,
+        tax: action.tax,
+        tip: action.tip,
+        discount: action.discount,
+        assignments: {},
+      };
 
     case 'SET_TAX':
       return { ...state, tax: action.tax };
 
     case 'SET_TIP':
       return { ...state, tip: action.tip };
+
+    case 'SET_DISCOUNT':
+      return { ...state, discount: action.discount };
 
     case 'ADD_ITEM':
       return {

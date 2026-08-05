@@ -19,7 +19,7 @@ describe('billReducer', () => {
   });
 
   describe('SET_PARSED_RECEIPT', () => {
-    it('replaces items/tax/tip and clears any prior assignments', () => {
+    it('replaces items/tax/tip/discount and clears any prior assignments', () => {
       const before: BillState = {
         ...initialBillState,
         items: [{ id: 'old', name: 'Old', price: 1, quantity: 1 }],
@@ -27,21 +27,34 @@ describe('billReducer', () => {
       };
       const items = [{ id: 'i1', name: 'Burger', price: 12, quantity: 1 }];
 
-      const state = billReducer(before, { type: 'SET_PARSED_RECEIPT', items, tax: 2, tip: 3 });
+      const state = billReducer(before, {
+        type: 'SET_PARSED_RECEIPT',
+        items,
+        tax: 2,
+        tip: 3,
+        discount: 4,
+      });
 
       expect(state.items).toEqual(items);
       expect(state.tax).toBe(2);
       expect(state.tip).toBe(3);
+      expect(state.discount).toBe(4);
       expect(state.assignments).toEqual({});
     });
   });
 
-  describe('SET_TAX / SET_TIP', () => {
-    it('updates tax and tip independently', () => {
+  describe('SET_TAX / SET_TIP / SET_DISCOUNT', () => {
+    it('defaults discount to 0', () => {
+      expect(initialBillState.discount).toBe(0);
+    });
+
+    it('updates tax, tip, and discount independently', () => {
       let state = billReducer(initialBillState, { type: 'SET_TAX', tax: 4.5 });
       state = billReducer(state, { type: 'SET_TIP', tip: 6 });
+      state = billReducer(state, { type: 'SET_DISCOUNT', discount: 3 });
       expect(state.tax).toBe(4.5);
       expect(state.tip).toBe(6);
+      expect(state.discount).toBe(3);
     });
   });
 
@@ -229,6 +242,7 @@ describe('billReducer', () => {
         items: [{ id: 'i1', name: 'A', price: 1, quantity: 1 }],
         tax: 5,
         tip: 5,
+        discount: 2,
         people: [{ id: 'p1', name: 'Alice' }],
         assignments: { i1: ['p1'] },
         taxTipSplitMode: 'proportional',

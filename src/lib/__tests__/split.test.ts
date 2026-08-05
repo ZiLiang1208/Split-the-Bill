@@ -138,6 +138,74 @@ describe('computeSplit', () => {
     expect(result.total).toBe(20);
   });
 
+  describe('discount', () => {
+    it('reduces the receipt-level total: subtotal - discount + tax + tip', () => {
+      const items = [item('i1', 'A', 10), item('i2', 'B', 5)];
+      const result = computeSplit([], items, {}, 3, 2, 'even', 4);
+      expect(result.subtotal).toBe(15);
+      expect(result.discount).toBe(4);
+      expect(result.total).toBe(15 - 4 + 3 + 2);
+    });
+
+    it('is distributed proportionally to each person\'s share of the subtotal, regardless of taxTipSplitMode', () => {
+      const people = [person('p1', 'Alice'), person('p2', 'Bob')];
+      const items = [item('i1', 'Steak', 30), item('i2', 'Salad', 10)];
+      const assignments: Assignments = { i1: ['p1'], i2: ['p2'] };
+
+      // Even tax/tip mode should not change how discount is distributed.
+      const evenResult = computeSplit(people, items, assignments, 0, 0, 'even', 8);
+      const alice = evenResult.perPerson.find((p) => p.person.id === 'p1')!;
+      const bob = evenResult.perPerson.find((p) => p.person.id === 'p2')!;
+      // Alice: 30/40 = 75% of discount => 6. Bob: 10/40 = 25% => 2.
+      expect(alice.discountShare).toBeCloseTo(6);
+      expect(bob.discountShare).toBeCloseTo(2);
+
+      const proportionalResult = computeSplit(people, items, assignments, 0, 0, 'proportional', 8);
+      const aliceP = proportionalResult.perPerson.find((p) => p.person.id === 'p1')!;
+      const bobP = proportionalResult.perPerson.find((p) => p.person.id === 'p2')!;
+      expect(aliceP.discountShare).toBeCloseTo(6);
+      expect(bobP.discountShare).toBeCloseTo(2);
+    });
+
+    it('reduces each person\'s total by their discount share', () => {
+      const people = [person('p1', 'Alice')];
+      const items = [item('i1', 'Burger', 20)];
+      const assignments: Assignments = { i1: ['p1'] };
+
+      const result = computeSplit(people, items, assignments, 0, 0, 'even', 5);
+
+      expect(result.perPerson[0].discountShare).toBe(5);
+      expect(result.perPerson[0].total).toBe(15);
+    });
+
+    it('gives $0 discount share to a person who ordered nothing', () => {
+      const people = [person('p1', 'Alice'), person('p2', 'Bob')];
+      const items = [item('i1', 'Mango', 4)];
+      const assignments: Assignments = { i1: ['p1'] };
+
+      const result = computeSplit(people, items, assignments, 0, 0, 'even', 2);
+
+      const bob = result.perPerson.find((p) => p.person.id === 'p2')!;
+      expect(bob.discountShare).toBe(0);
+    });
+
+    it('does not divide by zero when no items are assigned to anyone', () => {
+      const people = [person('p1', 'Alice')];
+      const items = [item('i1', 'Mango', 4)];
+
+      const result = computeSplit(people, items, {}, 0, 0, 'even', 3);
+
+      expect(result.perPerson[0].discountShare).toBe(0);
+    });
+
+    it('defaults to 0 when omitted', () => {
+      const items = [item('i1', 'A', 10)];
+      const result = computeSplit([], items, {}, 0, 0);
+      expect(result.discount).toBe(0);
+      expect(result.total).toBe(10);
+    });
+  });
+
   it('handles an item split three ways with a non-terminating decimal share', () => {
     const people = [person('p1', 'A'), person('p2', 'B'), person('p3', 'C')];
     const items = [item('i1', 'Pizza', 10)];

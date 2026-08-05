@@ -1,7 +1,7 @@
 import { parseGeminiJson } from '@/lib/parse-receipt';
 
 describe('parseGeminiJson', () => {
-  it('parses a well-formed response into items/tax/tip', () => {
+  it('parses a well-formed response into items/tax/tip/discount', () => {
     const content = JSON.stringify({
       items: [
         { name: 'Burger', price: 12, quantity: 1 },
@@ -9,12 +9,14 @@ describe('parseGeminiJson', () => {
       ],
       tax: 1.5,
       tip: 3,
+      discount: 2,
     });
 
     const result = parseGeminiJson(content);
 
     expect(result.tax).toBe(1.5);
     expect(result.tip).toBe(3);
+    expect(result.discount).toBe(2);
     expect(result.items).toHaveLength(2);
     expect(result.items[0]).toMatchObject({ name: 'Burger', price: 12, quantity: 1 });
     expect(result.items[1]).toMatchObject({ name: 'Fries', price: 5, quantity: 2 });
@@ -23,11 +25,18 @@ describe('parseGeminiJson', () => {
     expect(result.items[0].id).not.toBe(result.items[1].id);
   });
 
-  it('defaults tax and tip to 0 when absent', () => {
+  it('defaults tax, tip, and discount to 0 when absent', () => {
     const content = JSON.stringify({ items: [{ name: 'Water', price: 2 }] });
     const result = parseGeminiJson(content);
     expect(result.tax).toBe(0);
     expect(result.tip).toBe(0);
+    expect(result.discount).toBe(0);
+  });
+
+  it('defaults a non-numeric discount to 0', () => {
+    const content = JSON.stringify({ items: [{ name: 'Water', price: 2 }], discount: 'ten percent' });
+    const result = parseGeminiJson(content);
+    expect(result.discount).toBe(0);
   });
 
   it('defaults a missing/blank item name to "Item N" (1-indexed)', () => {
@@ -59,7 +68,7 @@ describe('parseGeminiJson', () => {
     expect(result.items.map((i) => i.quantity)).toEqual([1, 1, 1]);
   });
 
-  it('drops items with a negative price (discounts/refunds) but keeps the rest', () => {
+  it('folds a stray negative-price item (model put a discount in the items list) into the discount total, and excludes it from items', () => {
     const content = JSON.stringify({
       items: [
         { name: 'Burger', price: 12 },
@@ -69,6 +78,16 @@ describe('parseGeminiJson', () => {
     });
     const result = parseGeminiJson(content);
     expect(result.items.map((i) => i.name)).toEqual(['Burger', 'Fries']);
+    expect(result.discount).toBe(3);
+  });
+
+  it('adds a stray negative item on top of an explicit discount field, rather than overwriting it', () => {
+    const content = JSON.stringify({
+      items: [{ name: 'Burger', price: 12 }, { name: 'Coupon', price: -2 }],
+      discount: 5,
+    });
+    const result = parseGeminiJson(content);
+    expect(result.discount).toBe(7);
   });
 
   it('keeps a $0 item (not negative, just free)', () => {

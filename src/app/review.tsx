@@ -21,9 +21,11 @@ export default function ReviewScreen() {
     items,
     tax,
     tip,
+    discount,
     setParsedReceipt,
     setTax,
     setTip,
+    setDiscount,
     addItem,
     updateItem,
     removeItem,
@@ -165,6 +167,26 @@ export default function ReviewScreen() {
                   </Pressable>
 
                   <ThemedView style={[styles.totalsCard, { borderColor: theme.border }, Shadow.sm]}>
+                    <View style={styles.totalField}>
+                      <View style={styles.totalLabelRow}>
+                        <Ionicons name="ribbon-outline" size={15} color={theme.success} />
+                        <ThemedText themeColor="success" type="small">
+                          Discount
+                        </ThemedText>
+                      </View>
+                      <View style={styles.priceField}>
+                        <ThemedText themeColor="success" type="small">
+                          -$
+                        </ThemedText>
+                        <TextInput
+                          style={[styles.input, styles.totalsInput, { backgroundColor: theme.surfaceAlt, color: theme.text }]}
+                          value={String(discount)}
+                          onChangeText={(text) => setDiscount(Number(text.replace(/[^0-9.]/g, '')) || 0)}
+                          keyboardType="decimal-pad"
+                          placeholderTextColor={theme.textMuted}
+                        />
+                      </View>
+                    </View>
                     <View style={styles.totalField}>
                       <View style={styles.totalLabelRow}>
                         <Ionicons name="pricetag-outline" size={15} color={theme.textSecondary} />

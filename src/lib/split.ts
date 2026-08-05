@@ -10,6 +10,7 @@ export type PersonTotal = {
   person: Person;
   items: PersonItemShare[];
   subtotal: number;
+  discountShare: number;
   taxShare: number;
   tipShare: number;
   total: number;
@@ -19,6 +20,7 @@ export type SplitResult = {
   perPerson: PersonTotal[];
   unassignedItems: ReceiptItem[];
   subtotal: number;
+  discount: number;
   tax: number;
   tip: number;
   total: number;
@@ -30,7 +32,8 @@ export function computeSplit(
   assignments: Assignments,
   tax: number,
   tip: number,
-  taxTipSplitMode: TaxTipSplitMode = 'even'
+  taxTipSplitMode: TaxTipSplitMode = 'even',
+  discount: number = 0
 ): SplitResult {
   const subtotal = items.reduce((sum, item) => sum + item.price, 0);
   const unassignedItems = items.filter((item) => (assignments[item.id]?.length ?? 0) === 0);
@@ -57,6 +60,11 @@ export function computeSplit(
 
   const perPerson: PersonTotal[] = people.map((person) => {
     const personSubtotal = perPersonSubtotal.get(person.id) ?? 0;
+    const subtotalProportion = assignedSubtotal > 0 ? personSubtotal / assignedSubtotal : 0;
+
+    // Discount is always distributed by each person's share of what they
+    // ordered — it's tied to the items purchased, not to headcount.
+    const discountShare = discount * subtotalProportion;
 
     let taxShare: number;
     let tipShare: number;
@@ -64,18 +72,18 @@ export function computeSplit(
       taxShare = people.length > 0 ? tax / people.length : 0;
       tipShare = people.length > 0 ? tip / people.length : 0;
     } else {
-      const proportion = assignedSubtotal > 0 ? personSubtotal / assignedSubtotal : 0;
-      taxShare = tax * proportion;
-      tipShare = tip * proportion;
+      taxShare = tax * subtotalProportion;
+      tipShare = tip * subtotalProportion;
     }
 
     return {
       person,
       items: perPersonItems.get(person.id) ?? [],
       subtotal: personSubtotal,
+      discountShare,
       taxShare,
       tipShare,
-      total: personSubtotal + taxShare + tipShare,
+      total: personSubtotal - discountShare + taxShare + tipShare,
     };
   });
 
@@ -83,8 +91,9 @@ export function computeSplit(
     perPerson,
     unassignedItems,
     subtotal,
+    discount,
     tax,
     tip,
-    total: subtotal + tax + tip,
+    total: subtotal - discount + tax + tip,
   };
 }
