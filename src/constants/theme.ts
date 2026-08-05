@@ -107,22 +107,30 @@ export const Radius = {
   pill: 999,
 } as const;
 
-export const Shadow = {
-  sm: {
-    shadowColor: '#12131A',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+// Native (iOS/Android) needs the shadow*/elevation props; web renders faster
+// and without a deprecation warning using a plain CSS boxShadow instead.
+export const Shadow = Platform.select({
+  web: {
+    sm: { boxShadow: '0 2px 6px rgba(18, 19, 26, 0.06)' },
+    md: { boxShadow: '0 8px 16px rgba(18, 19, 26, 0.1)' },
   },
-  md: {
-    shadowColor: '#12131A',
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 6,
+  default: {
+    sm: {
+      shadowColor: '#12131A',
+      shadowOpacity: 0.06,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 2,
+    },
+    md: {
+      shadowColor: '#12131A',
+      shadowOpacity: 0.1,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 6,
+    },
   },
-} as const;
+}) as { sm: object; md: object };
 
 // Rotating palette for per-person avatar colors, distinct from the brand primary.
 export const AvatarPalette = [

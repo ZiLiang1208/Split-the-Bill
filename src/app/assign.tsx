@@ -1,11 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { DraggableItemRow } from '@/components/draggable-item-row';
+import { ItemRow } from '@/components/item-row';
 import { PersonAvatar } from '@/components/person-avatar';
 import { PrimaryButton } from '@/components/primary-button';
 import { ScreenHeader } from '@/components/screen-header';
@@ -14,7 +13,6 @@ import { ThemedView } from '@/components/themed-view';
 import { Radius, Spacing, avatarColorFor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useBill } from '@/lib/bill-context';
-import type { PersonLayout } from '@/lib/geometry';
 
 export default function AssignScreen() {
   const router = useRouter();
@@ -31,20 +29,6 @@ export default function AssignScreen() {
   } = useBill();
   const [nameInput, setNameInput] = useState('');
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const personRefs = useRef<Record<string, View | null>>({});
-  const personLayouts = useSharedValue<Record<string, PersonLayout>>({});
-
-  const remeasure = useCallback(() => {
-    people.forEach((person) => {
-      const node = personRefs.current[person.id];
-      node?.measureInWindow((x, y, width, height) => {
-        personLayouts.value = {
-          ...personLayouts.value,
-          [person.id]: { id: person.id, x, y, width, height },
-        };
-      });
-    });
-  }, [people, personLayouts]);
 
   function handleAddPerson() {
     const name = nameInput.trim();
@@ -71,7 +55,7 @@ export default function AssignScreen() {
           subtitle={
             selectedItemId
               ? 'Tap a person to link the selected item.'
-              : 'Tap an item then a person to link them — or press & hold to drag.'
+              : 'Tap an item, then tap a person to link them.'
           }
           step={3}
           showBack
@@ -80,16 +64,12 @@ export default function AssignScreen() {
         <ThemedText themeColor="textSecondary" type="small" style={styles.sectionLabel}>
           WHO&apos;S SPLITTING
         </ThemedText>
-        <View style={styles.peopleRow} onLayout={remeasure}>
+        <View style={styles.peopleRow}>
           {people.map((person, index) => (
             <PersonAvatar
               key={person.id}
-              ref={(node) => {
-                personRefs.current[person.id] = node;
-              }}
               person={person}
               color={avatarColorFor(index)}
-              onLayout={remeasure}
               onPress={() => handlePersonPress(person.id)}
               onRemove={() => removePerson(person.id)}
               assignedCount={assignedCountFor(person.id)}
@@ -154,12 +134,10 @@ export default function AssignScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
-            <DraggableItemRow
+            <ItemRow
               item={item}
               people={people}
               assignedIds={assignments[item.id] ?? []}
-              personLayouts={personLayouts}
-              onDropOnPerson={(personId) => toggleAssignment(item.id, personId)}
               selected={selectedItemId === item.id}
               onPress={() => setSelectedItemId((current) => (current === item.id ? null : item.id))}
             />

@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { forwardRef } from 'react';
-import { Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Shadow } from '@/constants/theme';
@@ -14,7 +13,6 @@ type Props = {
   selected?: boolean;
   onPress?: () => void;
   onRemove: () => void;
-  onLayout?: (e: LayoutChangeEvent) => void;
 };
 
 function initials(name: string) {
@@ -23,14 +21,11 @@ function initials(name: string) {
   return letters || '?';
 }
 
-export const PersonAvatar = forwardRef<View, Props>(function PersonAvatar(
-  { person, color, assignedCount, selected, onPress, onRemove, onLayout },
-  ref
-) {
+export function PersonAvatar({ person, color, assignedCount, selected, onPress, onRemove }: Props) {
   const theme = useTheme();
 
   return (
-    <View ref={ref} onLayout={onLayout} style={styles.container} collapsable={false}>
+    <View style={styles.container}>
       <View style={styles.circleWrap}>
         <Pressable
           onPress={onPress}
@@ -67,7 +62,7 @@ export const PersonAvatar = forwardRef<View, Props>(function PersonAvatar(
       </ThemedText>
     </View>
   );
-});
+}
 
 const styles = StyleSheet.create({
   container: { alignItems: 'center', width: 60 },
