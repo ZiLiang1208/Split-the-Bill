@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -17,24 +17,19 @@ import { useBill } from '@/lib/bill-context';
 export default function AssignScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const {
-    items,
-    people,
-    assignments,
-    addPerson,
-    removePerson,
-    toggleAssignment,
-    taxTipSplitMode,
-    setTaxTipSplitMode,
-  } = useBill();
+  const { items, people, assignments, addPerson, removePerson, toggleAssignment } = useBill();
   const [nameInput, setNameInput] = useState('');
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const nameInputRef = useRef<TextInput>(null);
 
   function handleAddPerson() {
     const name = nameInput.trim();
     if (!name) return;
     addPerson(name);
     setNameInput('');
+    // Keep the cursor in the box so adding several people in a row doesn't
+    // need re-tapping the field each time.
+    nameInputRef.current?.focus();
   }
 
   function handlePersonPress(personId: string) {
@@ -79,52 +74,19 @@ export default function AssignScreen() {
         <View style={[styles.addPersonRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Ionicons name="person-add-outline" size={16} color={theme.textSecondary} />
           <TextInput
+            ref={nameInputRef}
             style={[styles.nameInput, { color: theme.text }]}
             value={nameInput}
             onChangeText={setNameInput}
             placeholder="Add a person…"
             placeholderTextColor={theme.textMuted}
             onSubmitEditing={handleAddPerson}
+            blurOnSubmit={false}
             returnKeyType="done"
           />
           <Pressable onPress={handleAddPerson} style={[styles.addButton, { backgroundColor: theme.primary }]}>
             <Ionicons name="add" size={18} color={theme.onPrimary} />
           </Pressable>
-        </View>
-
-        <View style={styles.taxTipRow}>
-          <ThemedText themeColor="textMuted" type="small">
-            Tax &amp; tip
-          </ThemedText>
-          <View style={[styles.segmented, { backgroundColor: theme.surfaceAlt }]}>
-            <Pressable
-              onPress={() => setTaxTipSplitMode('even')}
-              style={[styles.segment, taxTipSplitMode === 'even' && { backgroundColor: theme.primary }]}
-            >
-              <ThemedText
-                type="small"
-                style={taxTipSplitMode === 'even' && { color: theme.onPrimary }}
-                themeColor={taxTipSplitMode === 'even' ? undefined : 'textSecondary'}
-              >
-                Evenly
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              onPress={() => setTaxTipSplitMode('proportional')}
-              style={[
-                styles.segment,
-                taxTipSplitMode === 'proportional' && { backgroundColor: theme.primary },
-              ]}
-            >
-              <ThemedText
-                type="small"
-                style={taxTipSplitMode === 'proportional' && { color: theme.onPrimary }}
-                themeColor={taxTipSplitMode === 'proportional' ? undefined : 'textSecondary'}
-              >
-                By Order
-              </ThemedText>
-            </Pressable>
-          </View>
         </View>
 
         <FlatList
@@ -183,29 +145,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: Spacing.three,
   },
-  nameInput: { flex: 1, fontSize: 14, paddingVertical: Spacing.one },
+  // 16px keeps iOS Safari from auto-zooming the page when this field gains
+  // focus — anything smaller triggers an unwanted browser zoom-in on tap.
+  nameInput: { flex: 1, fontSize: 16, paddingVertical: Spacing.one },
   addButton: {
     width: 28,
     height: 28,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  taxTipRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    marginBottom: Spacing.three,
-  },
-  segmented: {
-    flexDirection: 'row',
-    borderRadius: Radius.pill,
-    padding: 3,
-  },
-  segment: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: 6,
-    borderRadius: Radius.pill,
   },
   itemsList: { flex: 1 },
   list: { gap: Spacing.two, paddingBottom: Spacing.two },

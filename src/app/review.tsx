@@ -15,6 +15,11 @@ import { type DiscountMode, type ReceiptItem, useBill } from '@/lib/bill-context
 import { parseReceiptImage } from '@/lib/parse-receipt';
 import { convertDiscountValue, resolveDiscountAmount } from '@/lib/split';
 
+const TAX_TIP_MODE_DESCRIPTION: Record<'even' | 'proportional', string> = {
+  even: 'Tax and tip are split equally across everyone.',
+  proportional: "Tax and tip are split based on each person's share of the order total.",
+};
+
 export default function ReviewScreen() {
   const router = useRouter();
   const theme = useTheme();
@@ -25,11 +30,13 @@ export default function ReviewScreen() {
     tip,
     discount,
     discountMode,
+    taxTipSplitMode,
     setParsedReceipt,
     setTax,
     setTip,
     setDiscount,
     setDiscountMode,
+    setTaxTipSplitMode,
     addItem,
     updateItem,
     removeItem,
@@ -293,6 +300,42 @@ export default function ReviewScreen() {
                         />
                       </View>
                     </View>
+
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+                    <ThemedText type="smallBold">Tax &amp; Tip Split</ThemedText>
+                    <View style={[styles.segmented, { backgroundColor: theme.surfaceAlt }]}>
+                      <Pressable
+                        onPress={() => setTaxTipSplitMode('even')}
+                        style={[styles.segment, taxTipSplitMode === 'even' && { backgroundColor: theme.primary }]}
+                      >
+                        <ThemedText
+                          type="small"
+                          style={taxTipSplitMode === 'even' && { color: theme.onPrimary }}
+                          themeColor={taxTipSplitMode === 'even' ? undefined : 'textSecondary'}
+                        >
+                          Split Evenly
+                        </ThemedText>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setTaxTipSplitMode('proportional')}
+                        style={[
+                          styles.segment,
+                          taxTipSplitMode === 'proportional' && { backgroundColor: theme.primary },
+                        ]}
+                      >
+                        <ThemedText
+                          type="small"
+                          style={taxTipSplitMode === 'proportional' && { color: theme.onPrimary }}
+                          themeColor={taxTipSplitMode === 'proportional' ? undefined : 'textSecondary'}
+                        >
+                          By Order
+                        </ThemedText>
+                      </Pressable>
+                    </View>
+                    <ThemedText themeColor="textSecondary" type="small">
+                      {TAX_TIP_MODE_DESCRIPTION[taxTipSplitMode]}
+                    </ThemedText>
                   </ThemedView>
                 </View>
               }
@@ -352,7 +395,10 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm,
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
-    fontSize: 15,
+    // 16px is the minimum that keeps iOS Safari from auto-zooming the page
+    // when the input gains focus — anything smaller triggers an unwanted
+    // browser zoom-in on tap.
+    fontSize: 16,
     minWidth: 44,
   },
   nameInput: { flex: 1 },
@@ -397,5 +443,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   discountHint: { textAlign: 'right', marginTop: -Spacing.one },
+  divider: { height: 1, marginVertical: Spacing.one },
+  segmented: {
+    flexDirection: 'row',
+    borderRadius: Radius.pill,
+    padding: 3,
+    alignSelf: 'flex-start',
+  },
+  segment: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 6,
+    borderRadius: Radius.pill,
+  },
   continueWrap: { marginTop: Spacing.two, marginBottom: Spacing.three },
 });
