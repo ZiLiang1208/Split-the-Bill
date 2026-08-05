@@ -1,7 +1,15 @@
 import type { DiscountMode, ReceiptItem } from '@/lib/bill-context';
 
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-const GEMINI_MODEL = 'gemini-flash-latest';
+
+// Google grants free-tier quota per model, as an entirely separate daily
+// bucket per model (confirmed against the live API — dated model IDs like
+// gemini-2.0-flash return a hard "limit: 0" on this kind of key, while the
+// "-latest" aliases are the ones actually provisioned). Falling back to a
+// second "-latest" model on a 429 means one model's quota running out
+// doesn't stop receipt scanning — it just quietly uses the other bucket.
+const PRIMARY_MODEL = 'gemini-flash-latest';
+const FALLBACK_MODEL = 'gemini-flash-lite-latest';
 
 const SYSTEM_PROMPT = `You read photos of restaurant/store receipts and extract structured data.
 Return ONLY a JSON object with this exact shape, no prose:
@@ -121,6 +129,15 @@ export function parseGeminiJson(content: string): ParsedReceipt {
   };
 }
 
+export class GeminiRequestError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'GeminiRequestError';
+    this.status = status;
+  }
+}
+
 async function uriToBase64(uri: string): Promise<{ base64: string; mimeType: string }> {
   const response = await fetch(uri);
   const blob = await response.blob();
@@ -137,17 +154,9 @@ async function uriToBase64(uri: string): Promise<{ base64: string; mimeType: str
   return { mimeType: match[1], base64: match[2] };
 }
 
-export async function parseReceiptImage(imageUri: string): Promise<ParsedReceipt> {
-  if (!GEMINI_API_KEY) {
-    throw new Error(
-      'Missing Gemini API key. Set EXPO_PUBLIC_GEMINI_API_KEY in your .env file and restart the dev server.'
-    );
-  }
-
-  const { base64, mimeType } = await uriToBase64(imageUri);
-
+async function callGeminiModel(model: string, base64: string, mimeType: string): Promise<string> {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -174,13 +183,49 @@ export async function parseReceiptImage(imageUri: string): Promise<ParsedReceipt
 
   if (!response.ok) {
     const errorBody = await response.text().catch(() => '');
-    throw new Error(`Gemini request failed (${response.status}): ${errorBody.slice(0, 300)}`);
+    throw new GeminiRequestError(
+      `Gemini request failed (${response.status}): ${errorBody.slice(0, 300)}`,
+      response.status
+    );
   }
 
   const data = await response.json();
   const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!content) {
-    throw new Error('Gemini returned an empty response.');
+    throw new GeminiRequestError('Gemini returned an empty response.', response.status);
+  }
+  return content;
+}
+
+export function isRateLimited(error: unknown): boolean {
+  return error instanceof GeminiRequestError && error.status === 429;
+}
+
+export async function parseReceiptImage(imageUri: string): Promise<ParsedReceipt> {
+  if (!GEMINI_API_KEY) {
+    throw new Error(
+      'Missing Gemini API key. Set EXPO_PUBLIC_GEMINI_API_KEY in your .env file and restart the dev server.'
+    );
+  }
+
+  const { base64, mimeType } = await uriToBase64(imageUri);
+
+  let content: string;
+  try {
+    content = await callGeminiModel(PRIMARY_MODEL, base64, mimeType);
+  } catch (primaryError) {
+    if (!isRateLimited(primaryError)) throw primaryError;
+
+    try {
+      content = await callGeminiModel(FALLBACK_MODEL, base64, mimeType);
+    } catch (fallbackError) {
+      if (isRateLimited(fallbackError)) {
+        throw new Error(
+          "You've hit Gemini's free daily limit on both models. It resets in about 24 hours, or you can add billing to your Google AI Studio project for a much higher limit (Gemini Flash is very cheap per request). Check your exact usage at aistudio.google.com/rate-limit."
+        );
+      }
+      throw fallbackError;
+    }
   }
 
   return parseGeminiJson(content);

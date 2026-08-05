@@ -1,4 +1,4 @@
-import { parseGeminiJson } from '@/lib/parse-receipt';
+import { GeminiRequestError, isRateLimited, parseGeminiJson } from '@/lib/parse-receipt';
 
 describe('parseGeminiJson', () => {
   it('parses a well-formed response into items/tax/tip/discount', () => {
@@ -175,5 +175,29 @@ describe('parseGeminiJson', () => {
     expect(() => parseGeminiJson(JSON.stringify({ items: 'nope' }))).toThrow(
       'Receipt data was missing an items list.'
     );
+  });
+});
+
+describe('GeminiRequestError / isRateLimited', () => {
+  it('carries the HTTP status code and reads as a normal Error', () => {
+    const error = new GeminiRequestError('Gemini request failed (429): quota exceeded', 429);
+    expect(error).toBeInstanceOf(Error);
+    expect(error.status).toBe(429);
+    expect(error.message).toContain('429');
+  });
+
+  it('recognizes a 429 as rate-limited', () => {
+    expect(isRateLimited(new GeminiRequestError('rate limited', 429))).toBe(true);
+  });
+
+  it('does not treat other status codes as rate-limited', () => {
+    expect(isRateLimited(new GeminiRequestError('bad request', 400))).toBe(false);
+    expect(isRateLimited(new GeminiRequestError('server error', 500))).toBe(false);
+  });
+
+  it('does not treat a plain Error (e.g. a network failure) as rate-limited', () => {
+    expect(isRateLimited(new Error('Failed to fetch'))).toBe(false);
+    expect(isRateLimited('not even an error')).toBe(false);
+    expect(isRateLimited(null)).toBe(false);
   });
 });
